@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Programação Dinâmica - Planejamento de Produção</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+
+body{
+font-family:Arial;
+padding:20px;
+}
+
+table{
+border-collapse:collapse;
+margin-top:10px;
+}
+
+td,th{
+border:1px solid #444;
+padding:4px;
+text-align:center;
+}
+
+input{
+width:70px;
+text-align:center;
+}
+
+.erro{
+background:#ffb3b3;
+}
+
+.ok{
+background:#b3ffb3;
+}
+
+.estagio{
+margin-top:30px;
+border:2px solid #000;
+padding:15px;
+}
+
+button{
+margin-top:10px;
+padding:6px 12px;
+}
+
+</style>
+</head>
+
+<body>
+
+<h2>Programação Dinâmica - Planejamento de Produção</h2>
+
+<p><b>Regra:</b></p>
+
+<p>
+F(i,s)=min{ Custo de Produção + Custo de Estoque + F(i−1,s+d−x)* }
+</p>
+
+Nome do aluno:
+<input type="text" id="nomeAluno" style="width:250px"><br><br>
+
+Capacidade:
+<input type="number" id="capacidade" value="1500"><br><br>
+
+Passo do estado:
+<input type="number" id="passoEstado" value="500"><br><br>
+
+Número de períodos:
+<input type="number" id="numEstagios" value="5"><br><br>
+
+Estoque inicial:
+<input type="number" id="estoqueInicial" value="1500"><br><br>
+
+Estoque final:
+<input type="number" id="estoqueFinal" value="0"><br><br>
+
+Custo de estoque:
+<input type="number" id="custoEstoque" value="0.2"><br><br>
+
+Número de produções possíveis:
+<input type="number" id="numProd" value="3"><br><br>
+
+<button onclick="gerarParametros()">Gerar Parâmetros</button>
+<button onclick="corrigir()">Corrigir</button>
+<button onclick="gerarPDF()">Gerar PDF</button>
+
+<div id="parametros"></div>
+<div id="area"></div>
+<div id="solucao"></div>
+<div id="nota" style="font-size:20px;margin-top:20px;"></div>
+
+<script>
+
+const BIGM = 1e12
+
+let capacidade
+let passoEstado
+let n
+let estoqueInicial
+let estoqueFinal
+let custoEstoque
+
+let demandas=[]
+let producoes=[]
+let custosProd=[]
+let estados=[]
+let tabelaCorreta=[]
+
+let F=[]
+let politica=[]
+let estoquesCorretos=[]
+
+let ultimaNota=0
+
+function gerarParametros(){
+
+capacidade=parseInt(document.getElementById("capacidade").value)
+passoEstado=parseInt(document.getElementById("passoEstado").value)
+n=parseInt(document.getElementById("numEstagios").value)
+
+estoqueInicial=parseInt(document.getElementById("estoqueInicial").value)
+estoqueFinal=parseInt(document.getElementById("estoqueFinal").value)
+custoEstoque=parseFloat(document.getElementById("custoEstoque").value)
+
+let numProd=parseInt(document.getElementById("numProd").value)
+
+let div=document.getElementById("parametros")
+
+div.innerHTML="<h3>Demandas</h3>"
+
+for(let i=1;i<=n;i++){
+div.innerHTML+="Demanda "+i+" <input type='number' id='dem_"+i+"'><br>"
+}
+
+div.innerHTML+="<h3>Produções</h3>"
+
+for(let k=1;k<=numProd;k++){
+
+div.innerHTML+="Produção <input type='number' id='prod_"+k+"'> "
+div.innerHTML+="Custo <input type='number' id='custo_"+k+"'><br>"
+
+}
+
+div.innerHTML+="<br><button onclick='construirModelo()'>Construir Modelo</button>"
+
+}
+
+function construirModelo(){
+
+demandas=[]
+producoes=[]
+custosProd=[]
+
+for(let i=1;i<=n;i++){
+demandas[i]=parseInt(document.getElementById("dem_"+i).value)||0
+}
+
+let numProd=parseInt(document.getElementById("numProd").value)
+
+for(let k=1;k<=numProd;k++){
+
+producoes.push(parseInt(document.getElementById("prod_"+k).value)||0)
+custosProd.push(parseInt(document.getElementById("custo_"+k).value)||0)
+
+}
+
+gerarEstados()
+calcularDP()
+construirInterface()
+construirSolucao()
+
+}
+
+function gerarEstados(){
+
+estados=[]
+
+for(let s=0;s<=capacidade;s+=passoEstado){
+estados.push(s)
+}
+
+}
+
+function calcularDP(){
+
+F=[]
+tabelaCorreta=[]
+
+for(let i=0;i<=n;i++){
+
+F[i]=[]
+tabelaCorreta[i]=[]
+
+for(let s of estados){
+F[i][s]=BIGM
+}
+
+}
+
+for(let s of estados){
+
+if(s==estoqueInicial){
+F[0][s]=estoqueInicial*custoEstoque
+}else{
+F[0][s]=BIGM
+}
+
+tabelaCorreta[0][s]=F[0][s]
+
+}
+
+for(let i=1;i<=n;i++){
+
+tabelaCorreta[i]=[]
+
+for(let k=0;k<producoes.length;k++){
+
+let x=producoes[k]
+tabelaCorreta[i][x]={}
+
+for(let s of estados){
+
+let estoqueAnterior=s+demandas[i]-x
+let candidato=BIGM
+
+if(estados.includes(estoqueAnterior)){
+
+candidato=
+custosProd[k]+
+(s*custoEstoque)+
+F[i-1][estoqueAnterior]
+
+}
+
+if(k==0){
+tabelaCorreta[i][x][s]=candidato
+}else{
+let linhaAcima=tabelaCorreta[i][producoes[k-1]][s]
+tabelaCorreta[i][x][s]=Math.min(linhaAcima,candidato)
+}
+
+}
+
+}
+
+for(let s of estados){
+let ultima=producoes[producoes.length-1]
+F[i][s]=tabelaCorreta[i][ultima][s]
+}
+
+}
+
+calcularPolitica()
+
+}
+
+function calcularPolitica(){
+
+politica=new Array(n+1).fill(0)
+estoquesCorretos=new Array(n+1).fill(0)
+
+let s=estoqueFinal
+estoquesCorretos[n]=s
+
+for(let i=n;i>=1;i--){
+
+for(let x of producoes){
+
+let estoqueAnterior=s+demandas[i]-x
+
+if(estados.includes(estoqueAnterior)){
+
+let candidato=
+custosProd[producoes.indexOf(x)]
++(s*custoEstoque)
++F[i-1][estoqueAnterior]
+
+if(Math.abs(F[i][s]-candidato)<0.01){
+
+politica[i]=x
+s=estoqueAnterior
+estoquesCorretos[i-1]=s
+break
+
+}
+
+}
+
+}
+
+}
+
+}
+
+function construirInterface(){
+
+let area=document.getElementById("area")
+area.innerHTML=""
+
+for(let i=0;i<=n;i++){
+
+let div=document.createElement("div")
+div.className="estagio"
+
+div.innerHTML+="<h3>Estágio "+i+" /Demanda = "+(demandas[i]||0)+" </h3>"
+
+let tabela="<table><tr><th>Custo</th><th>Produção</th>"
+
+for(let s of estados){
+tabela+="<th>"+s+"</th>"
+}
+
+tabela+="</tr>"
+
+tabela+="<tr>"
+tabela+="<td colspan='2'><b>Cálculo custo estoque</b></td>"
+
+for(let s of estados){
+tabela+="<td><input id='calc_"+i+"_"+s+"'></td>"
+}
+
+tabela+="</tr>"
+
+if(i==0){
+
+tabela+="<tr>"
+tabela+="<td>0</td>"
+tabela+="<td>0</td>"
+
+for(let s of estados){
+tabela+="<td><input id='e_"+i+"_0_"+s+"'></td>"
+}
+
+tabela+="</tr>"
+
+}else{
+
+for(let x of producoes){
+
+tabela+="<tr>"
+tabela+="<td>"+custosProd[producoes.indexOf(x)]+"</td>"
+tabela+="<td>"+x+"</td>"
+
+for(let s of estados){
+tabela+="<td><input id='e_"+i+"_"+x+"_"+s+"'></td>"
+}
+
+tabela+="</tr>"
+
+}
+
+}
+
+tabela+="</table>"
+
+div.innerHTML+=tabela
+area.appendChild(div)
+
+}
+
+}
+
+function interpretarValor(v){
+v=v.trim().toUpperCase()
+if(v=="M"||v=="1E+12") return BIGM
+let num=parseFloat(v)
+if(isNaN(num)) return null
+return num
+}
+
+function corrigir(){
+
+let total=0
+let acertos=0
+
+/* CORRIGE LINHA DO CÁLCULO DO ESTOQUE */
+
+for(let i=0;i<=n;i++){
+
+for(let s of estados){
+
+let campo=document.getElementById("calc_"+i+"_"+s)
+if(!campo) continue
+
+total++
+
+let correto=s*custoEstoque
+let aluno=parseFloat(campo.value)
+
+if(!isNaN(aluno) && Math.abs(aluno-correto)<0.01){
+
+campo.classList.add("ok")
+acertos++
+
+}else{
+
+campo.classList.add("erro")
+
+}
+
+}
+
+}
+
+/* RESTANTE DA CORREÇÃO ORIGINAL */
+
+for(let i=0;i<=n;i++){
+
+if(i==0){
+
+for(let s of estados){
+
+let campo=document.getElementById("e_0_0_"+s)
+
+total++
+
+let aluno=interpretarValor(campo.value)
+let correto=tabelaCorreta[0][s]
+
+if(aluno!=null && Math.abs(aluno-correto)<0.01){
+
+campo.classList.add("ok")
+acertos++
+
+}else{
+
+campo.classList.add("erro")
+
+}
+
+}
+
+}else{
+
+for(let x of producoes){
+
+for(let s of estados){
+
+let campo=document.getElementById("e_"+i+"_"+x+"_"+s)
+
+total++
+
+let aluno=interpretarValor(campo.value)
+let correto=tabelaCorreta[i][x][s]
+
+if(aluno!=null && (Math.abs(aluno-correto)<0.01 || (aluno>=BIGM && correto>=BIGM))){
+
+campo.classList.add("ok")
+acertos++
+
+}else{
+
+campo.classList.add("erro")
+
+}
+
+}
+
+}
+
+}
+
+}
+
+let s=estoqueInicial
+
+for(let i=1;i<=n;i++){
+
+let campo=document.getElementById("sol_"+i)
+
+total++
+
+if(parseInt(campo.value)==politica[i]){
+
+campo.classList.add("ok")
+acertos++
+
+}else{
+
+campo.classList.add("erro")
+
+}
+
+}
+
+s=estoqueInicial
+
+for(let i=1;i<=n;i++){
+
+let campo=document.getElementById("est_"+i)
+
+total++
+
+let correto=s + politica[i] - demandas[i]
+
+if(Math.abs(parseFloat(campo.value)-correto)<0.01){
+
+campo.classList.add("ok")
+acertos++
+
+}else{
+
+campo.classList.add("erro")
+
+}
+
+s=correto
+
+}
+
+let campoTotal=document.getElementById("custoTotal")
+
+total++
+
+if(Math.abs(parseFloat(campoTotal.value)-F[n][estoqueFinal])<0.01){
+
+campoTotal.classList.add("ok")
+acertos++
+
+}else{
+
+campoTotal.classList.add("erro")
+
+}
+
+ultimaNota=Math.round((acertos/total)*100)
+
+document.getElementById("nota").innerHTML="Nota: "+ultimaNota+"/100"
+
+}
+
+function construirSolucao(){
+
+let div=document.getElementById("solucao")
+
+let html="<h3>Política Ótima</h3>"
+
+html+="<table>"
+html+="<tr><th>Período</th><th>Demanda</th><th>Produção</th><th>Estoque Final</th></tr>"
+
+for(let i=1;i<=n;i++){
+
+html+="<tr>"
+html+="<td>"+i+"</td>"
+html+="<td>"+demandas[i]+"</td>"
+html+="<td><input type='number' id='sol_"+i+"'></td>"
+html+="<td><input type='number' id='est_"+i+"'></td>"
+html+="</tr>"
+
+}
+
+html+="</table>"
+
+html+="<br>Custo total: <input type='number' id='custoTotal'>"
+
+div.innerHTML=html
+
+}
+
+async function gerarPDF(){
+
+let nome=document.getElementById("nomeAluno").value
+
+const { jsPDF } = window.jspdf
+const doc=new jsPDF()
+
+doc.text("Relatório Programação Dinâmica",10,10)
+doc.text("Aluno: "+nome,10,20)
+doc.text("Nota: "+ultimaNota+"/100",10,30)
+
+doc.save("relatorio_dp_"+nome+".pdf")
+
+}
+
+</script>
+
+</body>
+</html>
