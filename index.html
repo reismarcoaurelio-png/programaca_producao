@@ -308,6 +308,7 @@ let div=document.createElement("div")
 div.className="estagio"
 
 div.innerHTML+="<h3>Estágio "+i+" /Demanda = "+(demandas[i]||0)+" </h3>"
+div.innerHTML += "<button onclick='corrigir()'>Corrigir</button>"
 
 let estadosUsados = (i==n) ? [estoqueFinal] : estados
 
@@ -557,6 +558,7 @@ html+="</tr>"
 html+="</table>"
 
 html+="<br>Custo total: <input type='number' id='custoTotal'>"
+html+= "<button onclick='corrigir()'>Corrigir</button>"
 
 div.innerHTML=html
 
