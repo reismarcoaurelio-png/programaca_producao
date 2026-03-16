@@ -309,9 +309,11 @@ div.className="estagio"
 
 div.innerHTML+="<h3>Estágio "+i+" /Demanda = "+(demandas[i]||0)+" </h3>"
 
+let estadosUsados = (i==n) ? [estoqueFinal] : estados
+
 let tabela="<table><tr><th>Custo</th><th>Produção</th>"
 
-for(let s of estados){
+for(let s of estadosUsados){
 tabela+="<th>"+s+"</th>"
 }
 
@@ -320,7 +322,7 @@ tabela+="</tr>"
 tabela+="<tr>"
 tabela+="<td colspan='2'><b>Cálculo custo estoque</b></td>"
 
-for(let s of estados){
+for(let s of estadosUsados){
 tabela+="<td><input id='calc_"+i+"_"+s+"'></td>"
 }
 
@@ -332,7 +334,7 @@ tabela+="<tr>"
 tabela+="<td>0</td>"
 tabela+="<td>0</td>"
 
-for(let s of estados){
+for(let s of estadosUsados){
 tabela+="<td><input id='e_"+i+"_0_"+s+"'></td>"
 }
 
@@ -346,7 +348,7 @@ tabela+="<tr>"
 tabela+="<td>"+custosProd[producoes.indexOf(x)]+"</td>"
 tabela+="<td>"+x+"</td>"
 
-for(let s of estados){
+for(let s of estadosUsados){
 tabela+="<td><input id='e_"+i+"_"+x+"_"+s+"'></td>"
 }
 
@@ -378,8 +380,6 @@ function corrigir(){
 let total=0
 let acertos=0
 
-/* CORRIGE LINHA DO CÁLCULO DO ESTOQUE */
-
 for(let i=0;i<=n;i++){
 
 for(let s of estados){
@@ -407,8 +407,6 @@ campo.classList.add("erro")
 
 }
 
-/* RESTANTE DA CORREÇÃO ORIGINAL */
-
 for(let i=0;i<=n;i++){
 
 if(i==0){
@@ -416,6 +414,7 @@ if(i==0){
 for(let s of estados){
 
 let campo=document.getElementById("e_0_0_"+s)
+if(!campo) continue
 
 total++
 
@@ -442,6 +441,7 @@ for(let x of producoes){
 for(let s of estados){
 
 let campo=document.getElementById("e_"+i+"_"+x+"_"+s)
+if(!campo) continue
 
 total++
 
